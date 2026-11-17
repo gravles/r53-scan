@@ -53,4 +53,21 @@ async function run(simProto, mode) {
 await run('iso9141', 'auto');
 await run('kwp', 'kwp_fast');
 await run('kwp', 'auto');
+
+// cable self-test: simulator echoes (cable OK); a transport that never echoes must say "not powered"
+{
+  const { testCable } = await import('../js/cabletest.js');
+  const { ByteTransport } = await import('../js/transport/base.js');
+  const sim = new SimulatorTransport({ protocol: 'iso9141' });
+  await sim.open();
+  const ok = await testCable(sim, () => {});
+  await sim.close();
+  assert.equal(ok.working.length, 4);
+  assert.equal(ok.afterBreak, true);
+  class Dead extends ByteTransport { async setLines() {} async setBreak() {} async write() {} }
+  const dead = await testCable(new Dead(), () => {});
+  assert.equal(dead.working.length, 0);
+  assert.match(dead.verdict, /not powered/);
+  console.log('✓ cable test (echo present / absent)');
+}
 console.log('all passed');
