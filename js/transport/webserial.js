@@ -24,7 +24,17 @@ export class WebSerialTransport extends ByteTransport {
   }
 
   async #readLoop() {
-    while (this.port?.readable && !this._closing) {
+    let errors = 0;
+    while (this.port && !this._closing) {
+      // After a non-fatal error Chrome swaps in a new stream; give it a moment if it isn't there yet.
+      if (!this.port.readable) {
+        await new Promise((r) => setTimeout(r, 20));
+        if (!this.port?.readable && !this._closing) {
+          this.onError?.(new Error('Serial port stopped delivering data (readable stream gone)'));
+          return;
+        }
+        continue;
+      }
       this.reader = this.port.readable.getReader();
       try {
         for (;;) {
@@ -37,6 +47,8 @@ export class WebSerialTransport extends ByteTransport {
         // the stream is recreated and we just grab a new reader.
         if (!['BreakError', 'FramingError', 'ParityError', 'BufferOverrunError'].includes(e.name)) {
           if (!this._closing) this.onError?.(e);
+        } else if (++errors <= 3) {
+          this.onNote?.(`Serial read: ${e.name} (normal during wake-up)`);
         }
       } finally {
         this.reader.releaseLock();

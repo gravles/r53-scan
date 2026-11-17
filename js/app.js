@@ -2,6 +2,7 @@ import { WebSerialTransport } from './transport/webserial.js';
 import { WebUsbFtdiTransport } from './transport/webusb-ftdi.js';
 import { SimulatorTransport } from './transport/simulator.js';
 import { KLine } from './kline.js';
+import { testCable } from './cabletest.js';
 import { OBD } from './obd.js';
 import { PIDS, BOOST, GAUGE_DEFAULTS, OBD_STANDARDS, pidLabel } from './pids.js';
 import { describeDtc } from './dtc-codes.js';
@@ -59,6 +60,7 @@ function refreshButtons() {
   $('connectBtn').textContent = S.transport ? 'Disconnect' : 'Connect';
   $('connectBtn').classList.toggle('primary', !S.transport);
   $('connectBtn').disabled = S.busy && !S.transport;
+  $('testBtn').disabled = S.busy || !!S.transport;
   for (const id of ['liveBtn', 'pickBtn', 'recBtn', 'readCodesBtn', 'freezeBtn', 'clearBtn']) $(id).disabled = !on;
   $('liveBtn').textContent = S.live ? 'Stop' : 'Start';
   $('liveBtn').classList.toggle('on', S.live);
@@ -82,10 +84,11 @@ async function connect() {
   try {
     t = def.id === 'sim' ? new SimulatorTransport({ protocol: $('simProto').value }) : new def.cls();
     t.onError = (e) => log('error', `Transport: ${e.message}`);
+    t.onNote = (m) => log('info', m);
     await t.open({ baud: 10400, dtr: opts.dtr, rts: opts.rts });
     S.transport = t;
     refreshButtons();
-    log('info', `Opened ${t.name} at 10400 baud`);
+    log('info', `Opened ${t.name} at 10400 baud (DTR ${opts.dtr ? 'on' : 'off'}, RTS ${opts.rts ? 'on' : 'off'})`);
     setStatus('busy', 'Waking the ECU…');
     hint('Ignition must be ON (engine can be running). The 5-baud wake-up takes a few seconds.');
     const k = new KLine(t, { log, interByteMs: opts.interByteMs, idleMs: opts.idleMs });
@@ -121,6 +124,37 @@ function troubleshoot(e, tid) {
     return 'The ECU did not answer. Check: ignition ON, cable fully seated, the cable switch in the pre-2007 position (pins 7+8 bridged; try the other position too), then try toggling DTR/RTS under Advanced. Raw bytes are in the Log tab.';
   }
   return '';
+}
+
+async function runCableTest() {
+  const def = TRANSPORTS.find((t) => t.id === $('transport').value);
+  S.busy = true;
+  refreshButtons();
+  hint('');
+  setStatus('busy', 'Testing cable…');
+  const t = def.id === 'sim' ? new SimulatorTransport({ protocol: $('simProto').value }) : new def.cls();
+  try {
+    t.onError = (e) => log('error', `Transport: ${e.message}`);
+    t.onNote = (m) => log('info', m);
+    await t.open({ baud: 10400, dtr: false, rts: false });
+    log('info', `Opened ${t.name} at 10400 baud for the cable test`);
+    const r = await testCable(t, log);
+    if (r.working.length === 1) {
+      $('dtr').checked = r.working[0].dtr;
+      $('rts').checked = r.working[0].rts;
+    }
+    setStatus(r.working.length && r.afterBreak ? 'off' : 'err', r.working.length && r.afterBreak ? 'Cable OK' : 'Cable problem');
+    hint(r.verdict);
+  } catch (e) {
+    const msg = e.name === 'NotFoundError' ? 'No device selected.' : e.message;
+    log('error', `Cable test: ${msg}`);
+    setStatus('err', 'Not connected');
+    hint(troubleshoot(e, def.id) || msg);
+  } finally {
+    try { await t.close(); } catch {}
+    S.busy = false;
+    refreshButtons();
+  }
 }
 
 async function disconnect(quiet = false) {
@@ -451,6 +485,7 @@ function init() {
   }
 
   $('connectBtn').onclick = () => (S.transport ? disconnect() : connect());
+  $('testBtn').onclick = runCableTest;
   $('liveBtn').onclick = () => (S.live ? (S.live = false) : startLive());
   $('pickBtn').onclick = () => { $('picker').hidden = !$('picker').hidden; $('pickBtn').classList.toggle('on', !$('picker').hidden); };
   $('recBtn').onclick = toggleRecord;
