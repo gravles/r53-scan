@@ -39,7 +39,11 @@ Use the **pre-2007** position (pins 7 and 8 bridged). If the ECU doesn't answer,
 ## On an Android phone
 
 Chrome on Android talks to the cable's FTDI chip over **WebUSB** with the OTG adapter. This option also sets the chip's latency to 1 ms, so timing is better than on the computer.
-Browsers only allow USB access from `https://` or `localhost`, so the phone needs the app hosted over HTTPS (GitHub Pages, Vercel, etc.).
+Browsers only allow USB access from `https://` or `localhost`. The app is hosted on GitHub Pages:
+
+**https://gravles.github.io/r53-scan/**
+
+Every push to `main` redeploys it automatically. In Chrome's menu, use **Add to Home screen** to get an app icon.
 **iPhone won't work.** iOS doesn't let apps or browsers use USB serial cables.
 
 ## Limits
