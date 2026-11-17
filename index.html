@@ -1,0 +1,126 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>R53 Scan</title>
+  <meta name="theme-color" content="#0d0f12">
+  <link rel="stylesheet" href="css/app.css">
+</head>
+<body>
+  <header class="top">
+    <div class="brand"><span class="badge">R53</span> Scan</div>
+    <div id="status" class="pill" data-state="off"><span class="dot"></span><span id="statusText">Disconnected</span></div>
+  </header>
+
+  <section class="card connect">
+    <div class="grid2">
+      <label>Interface
+        <select id="transport"></select>
+      </label>
+      <label>Protocol
+        <select id="protocol">
+          <option value="auto">Auto-detect</option>
+          <option value="iso9141">ISO 9141-2 (5-baud)</option>
+          <option value="kwp_slow">KWP2000 (5-baud)</option>
+          <option value="kwp_fast">KWP2000 (fast init)</option>
+        </select>
+      </label>
+    </div>
+    <details class="adv">
+      <summary>Advanced</summary>
+      <div class="grid2">
+        <label class="check"><input type="checkbox" id="dtr"> DTR on</label>
+        <label class="check"><input type="checkbox" id="rts"> RTS on</label>
+        <label>Gap between sent bytes (ms)<input type="number" id="interByte" min="0" max="20" value="5"></label>
+        <label>Reply silence timeout (ms)<input type="number" id="idle" min="20" max="300" value="60"></label>
+        <label>Simulated ECU
+          <select id="simProto"><option value="iso9141">ISO 9141-2</option><option value="kwp">KWP2000</option></select>
+        </label>
+      </div>
+      <p class="hint">Some K+DCAN cables use DTR/RTS to pick K-line vs D-CAN mode. If the car doesn't answer, try toggling these.</p>
+    </details>
+    <button id="connectBtn" class="primary wide">Connect</button>
+    <p id="hint" class="hint"></p>
+  </section>
+
+  <nav class="tabs" role="tablist">
+    <button class="tab-btn active" data-tab="live">Live</button>
+    <button class="tab-btn" data-tab="codes">Codes</button>
+    <button class="tab-btn" data-tab="info">Vehicle</button>
+    <button class="tab-btn" data-tab="log">Log</button>
+  </nav>
+
+  <main>
+    <section id="tab-live" class="tab active">
+      <div class="toolbar">
+        <button id="liveBtn" disabled>Start</button>
+        <button id="pickBtn" disabled>Gauges…</button>
+        <button id="recBtn" disabled>Record</button>
+        <span id="rate" class="muted"></span>
+      </div>
+      <div id="picker" class="picker" hidden></div>
+      <div id="tiles" class="tiles"></div>
+      <p id="liveEmpty" class="empty">Connect to the car to see live engine data.</p>
+    </section>
+
+    <section id="tab-codes" class="tab">
+      <div class="card mil-card">
+        <div id="milLamp" class="mil" data-on="unknown" aria-hidden="true">
+          <svg viewBox="0 0 24 24" width="30" height="30"><path fill="currentColor" d="M5 8h2V6h6v2h3l2 2h2v6h-2l-2 2h-3l-1 1H9l-2-2H5v-2H3v-4h2zm2 2v5l1.5 1.5H12l1-1h3.2l1.3-1.3V12h-1.3l-2-2z"/></svg>
+        </div>
+        <div>
+          <div id="milText" class="mil-text">Check engine light: —</div>
+          <div id="milSub" class="muted"></div>
+        </div>
+      </div>
+      <div class="toolbar">
+        <button id="readCodesBtn" class="primary" disabled>Read codes</button>
+        <button id="freezeBtn" disabled>Freeze frame</button>
+        <button id="clearBtn" class="danger" disabled>Clear codes</button>
+      </div>
+      <h3>Stored codes</h3>
+      <ul id="stored" class="dtcs"><li class="muted">Not read yet</li></ul>
+      <h3>Pending codes <span class="muted small">(seen once, not yet confirmed)</span></h3>
+      <ul id="pending" class="dtcs"><li class="muted">Not read yet</li></ul>
+      <div id="freeze"></div>
+      <p class="hint">Generic OBD-II only sees the engine computer's emissions codes. ABS, airbag and body codes on the Mini use BMW's own protocol.</p>
+    </section>
+
+    <section id="tab-info" class="tab">
+      <dl id="infoList" class="kv"><dt>Status</dt><dd>Not connected</dd></dl>
+      <h3>Readiness monitors</h3>
+      <ul id="readiness" class="ready"><li class="muted">—</li></ul>
+      <h3>Supported live PIDs</h3>
+      <div id="supported" class="chips"><span class="muted">—</span></div>
+    </section>
+
+    <section id="tab-log" class="tab">
+      <div class="toolbar">
+        <button id="copyLog">Copy</button>
+        <button id="saveLog">Download</button>
+        <button id="clearLog">Clear</button>
+        <label class="check small"><input type="checkbox" id="logBytes" checked> Show raw bytes</label>
+      </div>
+      <div id="log" class="log" aria-live="polite"></div>
+    </section>
+  </main>
+
+  <dialog id="clearDlg">
+    <form method="dialog">
+      <h2>Clear trouble codes?</h2>
+      <ul>
+        <li>Ignition <strong>on</strong>, engine <strong>off</strong>.</li>
+        <li>This also erases the freeze frame and resets the readiness monitors. They re-complete after a few normal drives.</li>
+        <li>If the fault is still there, the light will come back.</li>
+      </ul>
+      <div class="toolbar end">
+        <button value="cancel">Cancel</button>
+        <button value="ok" class="danger">Clear codes</button>
+      </div>
+    </form>
+  </dialog>
+
+  <script type="module" src="js/app.js"></script>
+</body>
+</html>
