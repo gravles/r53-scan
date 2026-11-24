@@ -74,12 +74,19 @@ export class KLine {
     // ECU answers 0x55 20–300 ms after the stop bit, then two key bytes.
     const deadline = t0 + 2000 + 700;
     let gotSync = false;
+    const stray = [];
     while (now() < deadline) {
       const b = await t.readExact(1, deadline - now());
       if (!b.length) break;
       if (b[0] === 0x55) { gotSync = true; break; }
+      stray.push(b[0]);
     }
-    if (!gotSync) throw new KLineError('ECU did not answer (no 0x55 sync byte)');
+    if (stray.length) this.log('warn', `Unexpected bytes after the address: ${hex(stray.slice(0, 32))}`);
+    if (!gotSync) {
+      throw new KLineError(stray.length
+        ? `ECU did not answer with 0x55 sync (got ${stray.length} other byte(s) — see log)`
+        : 'ECU did not answer (no 0x55 sync byte, line silent)');
+    }
     const kb = await t.readExact(2, 300);
     if (kb.length < 2) throw new KLineError('missing key bytes after sync');
     this.log('info', `Sync 0x55, key bytes ${hex(kb)}`);
